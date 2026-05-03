@@ -12,6 +12,7 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
+    <!-- Library Tambahan untuk Download Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
     <script>
@@ -136,7 +137,8 @@
                     <p class="text-[10px] font-black text-blue-600 uppercase tracking-widest">Visualisasi Penggunaan Ruangan</p>
                 </div>
                 <div class="flex gap-2 w-full md:w-auto">
-                    <button onclick="downloadRekapan()" class="text-[10px] font-black px-4 py-3 bg-green-600 text-white shadow-sm rounded-xl border-b-4 border-green-800 uppercase hover:bg-green-700 transition active:scale-95">
+                    <!-- Tombol Download (Hanya Admin) -->
+                    <button id="btnDownload" onclick="downloadRekapan()" class="hidden text-[10px] font-black px-4 py-3 bg-green-600 text-white shadow-sm rounded-xl border-b-4 border-green-800 uppercase hover:bg-green-700 transition active:scale-95">
                         <i class="fas fa-file-excel mr-2"></i> Unduh Rekap
                     </button>
 
@@ -186,8 +188,10 @@
         function detectRole() {
             const params = new URLSearchParams(window.location.search);
             const role = params.get('role');
-            if (role === 'adalahadmin') currentRole = 'admin';
-            else if (role === 'adalahuser') {
+            if (role === 'adalahadmin') {
+                currentRole = 'admin';
+                document.getElementById('btnDownload').classList.remove('hidden'); // Tampilkan download jika admin
+            } else if (role === 'adalahuser') {
                 currentRole = 'user';
                 document.getElementById('userFormSection').classList.remove('hidden');
             }
@@ -365,19 +369,19 @@
             }
         }
 
-        // --- Fungsi Baru: Download Rekapan Bulanan ---
+        // --- Download Rekapan Bulanan (Dicek kembali di sisi fungsi) ---
         function downloadRekapan() {
+            if (currentRole !== 'admin') return; // Proteksi tambahan
+
             if (allBookings.length === 0) {
                 return Swal.fire('Gagal', 'Tidak ada data untuk diunduh', 'error');
             }
 
-            // Ambil bulan & tahun yang sedang aktif di FullCalendar
             const currentViewDate = calendar.getDate();
             const currentMonth = currentViewDate.getMonth();
             const currentYear = currentViewDate.getFullYear();
             const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
 
-            // Filter data berdasarkan bulan & tahun tersebut
             const filteredData = allBookings.filter(b => {
                 const d = new Date(b.tanggal);
                 return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
@@ -387,7 +391,6 @@
                 return Swal.fire('Info', `Tidak ada booking pada bulan ${monthNames[currentMonth]} ${currentYear}`, 'info');
             }
 
-            // Map data untuk format Excel
             const dataExcel = filteredData.map((b, index) => ({
                 "No": index + 1,
                 "Tanggal": b.tanggal,
@@ -399,15 +402,11 @@
                 "Status": b.status
             }));
 
-            // Generate Workbook
             const worksheet = XLSX.utils.json_to_sheet(dataExcel);
             const workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, "Rekap Booking");
 
-            // Nama file dinamis
             const fileName = `REKAP_BOOKING_${monthNames[currentMonth].toUpperCase()}_${currentYear}.xlsx`;
-            
-            // Proses Download
             XLSX.writeFile(workbook, fileName);
             
             Swal.fire({
