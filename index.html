@@ -46,7 +46,7 @@
 <body class="bg-gray-50 text-gray-800 dark:bg-slate-900 dark:text-gray-100">
 
     <div id="appContent">
-        <nav class="bg-white dark:bg-slate-800 shadow-sm sticky top-0 z-50 border-b-4 border-yellow-500">
+        <nav class="bg-white dark:bg-slate-800 shadow-sm sticky top-0 z- border-b-4 border-yellow-500">
             <div class="container mx-auto px-6 py-3 flex justify-between items-center">
                 <div class="flex items-center space-x-3">
                     <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/bd/Coat_of_arms_of_Central_Java.svg/960px-Coat_of_arms_of_Central_Java.svg.png" class="h-10">
@@ -371,11 +371,13 @@
                 return Swal.fire('Gagal', 'Tidak ada data untuk diunduh', 'error');
             }
 
+            // Ambil bulan & tahun yang sedang aktif di FullCalendar
             const currentViewDate = calendar.getDate();
             const currentMonth = currentViewDate.getMonth();
             const currentYear = currentViewDate.getFullYear();
             const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
 
+            // Filter data berdasarkan bulan & tahun tersebut
             const filteredData = allBookings.filter(b => {
                 const d = new Date(b.tanggal);
                 return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
@@ -385,6 +387,7 @@
                 return Swal.fire('Info', `Tidak ada booking pada bulan ${monthNames[currentMonth]} ${currentYear}`, 'info');
             }
 
+            // Map data untuk format Excel
             const dataExcel = filteredData.map((b, index) => ({
                 "No": index + 1,
                 "Tanggal": b.tanggal,
@@ -396,12 +399,15 @@
                 "Status": b.status
             }));
 
+            // Generate Workbook
             const worksheet = XLSX.utils.json_to_sheet(dataExcel);
             const workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, "Rekap Booking");
 
+            // Nama file dinamis
             const fileName = `REKAP_BOOKING_${monthNames[currentMonth].toUpperCase()}_${currentYear}.xlsx`;
             
+            // Proses Download
             XLSX.writeFile(workbook, fileName);
             
             Swal.fire({
