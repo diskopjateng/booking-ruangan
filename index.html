@@ -34,7 +34,6 @@
 </head>
 <body class="bg-gray-50 text-gray-800 dark:bg-slate-900 dark:text-gray-100">
 
-    <!-- NAVIGATION -->
     <nav class="bg-white dark:bg-slate-800 shadow-sm sticky top-0 z-[100] border-b-4 border-yellow-500">
         <div class="container mx-auto px-6 py-3 flex justify-between items-center">
             <div class="flex items-center space-x-3">
@@ -48,7 +47,7 @@
                 <button onclick="toggleDarkMode()" class="w-10 h-10 rounded-xl bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-yellow-400 flex items-center justify-center">
                     <i id="themeIcon" class="fas fa-moon"></i>
                 </button>
-                <span id="roleLabel" class="text-[10px] font-black bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-4 py-2 rounded-full border border-blue-100 dark:border-blue-800 uppercase italic italic">GUEST</span>
+                <span id="roleLabel" class="text-[10px] font-black bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-4 py-2 rounded-full border border-blue-100 dark:border-blue-800 uppercase italic">GUEST</span>
             </div>
         </div>
     </nav>
@@ -58,7 +57,6 @@
         <p class="opacity-80 text-sm font-light">Sistem Informasi Penggunaan Ruang Rapat</p>
     </header>
 
-    <!-- FORM SECTION (Hanya untuk Role User) -->
     <section id="userFormSection" class="container mx-auto px-6 -mt-10 hidden mb-12 relative z-50">
         <div class="max-w-5xl mx-auto bg-white dark:bg-slate-800 rounded-3xl shadow-2xl border border-gray-100 dark:border-slate-700 overflow-hidden">
             <form id="bookingForm" onsubmit="simpanKeFirebase(event)" class="grid grid-cols-1 lg:grid-cols-3">
@@ -108,12 +106,10 @@
         </div>
     </section>
 
-    <!-- CALENDAR MAIN -->
     <section class="container mx-auto px-6 py-12">
         <div class="flex flex-col md:flex-row justify-between items-end mb-8 gap-4">
             <h3 class="font-900 text-2xl text-blue-900 dark:text-white uppercase italic tracking-tighter">Jadwal Kalender</h3>
             <div class="flex gap-2 w-full md:w-auto">
-                <!-- Tombol ini hanya muncul untuk Admin via JS -->
                 <button id="btnDownload" onclick="downloadRekapan()" class="hidden text-[10px] font-black px-4 py-3 bg-green-600 text-white shadow-sm rounded-xl border-b-4 border-green-800 uppercase hover:bg-green-700 transition active:scale-95">
                     <i class="fas fa-file-excel mr-2"></i> Unduh Rekap
                 </button>
@@ -145,7 +141,6 @@
             const params = new URLSearchParams(window.location.search);
             const role = params.get('role');
             
-            // Sembunyikan elemen sensitif secara default
             document.getElementById('btnDownload').classList.add('hidden');
             document.getElementById('userFormSection').classList.add('hidden');
 
@@ -177,7 +172,7 @@
             const mulai = document.getElementById('jamMulai').value;
             const selesai = document.getElementById('jamSelesai').value;
 
-            if(!tgl || !mulai || !selestai) return Swal.fire('Error', 'Lengkapi tanggal dan jam!', 'warning');
+            if(!tgl || !mulai || !selesai) return Swal.fire('Error', 'Lengkapi tanggal dan jam!', 'warning');
 
             const toMinutes = (s) => { const [h, m] = s.split(':').map(Number); return h * 60 + m; };
             const mBaru = toMinutes(mulai);
@@ -185,7 +180,6 @@
 
             if(sBaru <= mBaru) return Swal.fire('Error', 'Jam selesai harus lebih besar dari jam mulai.', 'error');
 
-            // --- CEK TABRAKAN JADWAL ---
             const bentrok = allBookings.find(b => {
                 if (b.tanggal === tgl && b.ruangan === ruang && b.status !== 'Rejected') {
                     const [bMulaiStr, bSelesaiStr] = b.jam.split(' - ');
@@ -200,7 +194,7 @@
                 return Swal.fire({
                     icon: 'error',
                     title: 'Jadwal Sudah Terisi!',
-                    html: `<p class="text-xs">Maaf, ruangan <b>${ruang}</b> sudah ada booking pada jam tersebut:<br><br>
+                    html: `<p class="text-xs">Maaf, ruangan <b>${ruang}</b> sudah di-booking pada jam tersebut:<br><br>
                            <b>"${bentrok.kegiatan}"</b><br>(${bentrok.jam})<br><br>
                            Silakan pilih ruangan lain atau jam lain.</p>`,
                     confirmButtonColor: '#1e3a8a'
@@ -249,9 +243,10 @@
                     <p><strong>Status:</strong> ${p.status}</p>
                 </div>
                 ${currentRole === 'admin' ? `
-                    <div class="grid grid-cols-2 gap-2 mt-4">
-                        <button onclick="updateStatus('${p.id}', 'Approved')" class="bg-green-600 text-white py-2 rounded-lg text-[10px] font-black uppercase">Approve</button>
-                        <button onclick="updateStatus('${p.id}', 'Rejected')" class="bg-red-600 text-white py-2 rounded-lg text-[10px] font-black uppercase">Reject</button>
+                    <div class="grid grid-cols-3 gap-2 mt-4">
+                        <button onclick="updateStatus('${p.id}', 'Approved')" class="bg-green-600 text-white py-2 rounded-lg text-[9px] font-black uppercase">Approve</button>
+                        <button onclick="updateStatus('${p.id}', 'Rejected')" class="bg-yellow-500 text-white py-2 rounded-lg text-[9px] font-black uppercase">Reject</button>
+                        <button onclick="hapusData('${p.id}')" class="bg-red-600 text-white py-2 rounded-lg text-[9px] font-black uppercase"><i class="fas fa-trash"></i> Hapus</button>
                     </div>` : ''}`,
                 showConfirmButton: false, customClass: { popup: 'rounded-[2rem] dark:bg-slate-800' }
             });
@@ -260,6 +255,26 @@
         function updateStatus(id, newStatus) { 
             if(currentRole !== 'admin') return;
             db.ref('bookings/' + id).update({ status: newStatus }).then(() => Swal.close()); 
+        }
+
+        function hapusData(id) {
+            if(currentRole !== 'admin') return;
+            Swal.fire({
+                title: 'Hapus Data?',
+                text: "Data yang dihapus tidak bisa dikembalikan!",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Ya, Hapus!',
+                cancelButtonText: 'Batal'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    db.ref('bookings/' + id).remove().then(() => {
+                        Swal.fire('Terhapus!', 'Data booking telah dihapus.', 'success');
+                    });
+                }
+            });
         }
 
         function downloadRekapan() {
