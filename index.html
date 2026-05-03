@@ -30,11 +30,11 @@
         .time-column { height: 120px; overflow-y: auto; scrollbar-width: none; }
         .time-unit { padding: 0.5rem; text-align: center; cursor: pointer; border-radius: 0.5rem; font-weight: bold; font-size: 14px; }
         .time-unit.active { background: #1e3a8a; color: white; }
-        #btnDownload { display: none; } 
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800 dark:bg-slate-900 dark:text-gray-100">
 
+    <!-- NAVIGATION -->
     <nav class="bg-white dark:bg-slate-800 shadow-sm sticky top-0 z-[100] border-b-4 border-yellow-500">
         <div class="container mx-auto px-6 py-3 flex justify-between items-center">
             <div class="flex items-center space-x-3">
@@ -48,7 +48,7 @@
                 <button onclick="toggleDarkMode()" class="w-10 h-10 rounded-xl bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-yellow-400 flex items-center justify-center">
                     <i id="themeIcon" class="fas fa-moon"></i>
                 </button>
-                <span id="roleLabel" class="text-[10px] font-black bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-4 py-2 rounded-full border border-blue-100 dark:border-blue-800 uppercase italic">GUEST</span>
+                <span id="roleLabel" class="text-[10px] font-black bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-4 py-2 rounded-full border border-blue-100 dark:border-blue-800 uppercase italic italic">GUEST</span>
             </div>
         </div>
     </nav>
@@ -58,6 +58,7 @@
         <p class="opacity-80 text-sm font-light">Sistem Informasi Penggunaan Ruang Rapat</p>
     </header>
 
+    <!-- FORM SECTION (Hanya untuk Role User) -->
     <section id="userFormSection" class="container mx-auto px-6 -mt-10 hidden mb-12 relative z-50">
         <div class="max-w-5xl mx-auto bg-white dark:bg-slate-800 rounded-3xl shadow-2xl border border-gray-100 dark:border-slate-700 overflow-hidden">
             <form id="bookingForm" onsubmit="simpanKeFirebase(event)" class="grid grid-cols-1 lg:grid-cols-3">
@@ -107,11 +108,13 @@
         </div>
     </section>
 
+    <!-- CALENDAR MAIN -->
     <section class="container mx-auto px-6 py-12">
         <div class="flex flex-col md:flex-row justify-between items-end mb-8 gap-4">
             <h3 class="font-900 text-2xl text-blue-900 dark:text-white uppercase italic tracking-tighter">Jadwal Kalender</h3>
             <div class="flex gap-2 w-full md:w-auto">
-                <button id="btnDownload" onclick="downloadRekapan()" class="text-[10px] font-black px-4 py-3 bg-green-600 text-white shadow-sm rounded-xl border-b-4 border-green-800 uppercase hover:bg-green-700 transition active:scale-95">
+                <!-- Tombol ini hanya muncul untuk Admin via JS -->
+                <button id="btnDownload" onclick="downloadRekapan()" class="hidden text-[10px] font-black px-4 py-3 bg-green-600 text-white shadow-sm rounded-xl border-b-4 border-green-800 uppercase hover:bg-green-700 transition active:scale-95">
                     <i class="fas fa-file-excel mr-2"></i> Unduh Rekap
                 </button>
                 <select id="filterRuangan" onchange="renderCalendar()" class="text-[10px] font-black px-4 py-3 bg-white dark:bg-slate-800 shadow-sm rounded-xl border-b-4 border-yellow-500 uppercase">
@@ -141,12 +144,14 @@
         function detectRole() {
             const params = new URLSearchParams(window.location.search);
             const role = params.get('role');
-            currentRole = 'guest';
-            document.getElementById('btnDownload').style.display = 'none';
+            
+            // Sembunyikan elemen sensitif secara default
+            document.getElementById('btnDownload').classList.add('hidden');
             document.getElementById('userFormSection').classList.add('hidden');
+
             if (role === 'adalahadmin') {
                 currentRole = 'admin';
-                document.getElementById('btnDownload').style.display = 'block';
+                document.getElementById('btnDownload').classList.remove('hidden');
             } else if (role === 'adalahuser') {
                 currentRole = 'user';
                 document.getElementById('userFormSection').classList.remove('hidden');
@@ -165,7 +170,6 @@
             });
         }
 
-        // --- FUNGSI PROTEKSI TABRAKAN JADWAL ---
         function simpanKeFirebase(e) {
             e.preventDefault();
             const tgl = document.getElementById('tanggal').value;
@@ -173,50 +177,48 @@
             const mulai = document.getElementById('jamMulai').value;
             const selesai = document.getElementById('jamSelesai').value;
 
-            if(!tgl || !mulai || !selesai) return Swal.fire('Error', 'Lengkapi tanggal dan jam!', 'warning');
+            if(!tgl || !mulai || !selestai) return Swal.fire('Error', 'Lengkapi tanggal dan jam!', 'warning');
 
-            // Konversi jam ke angka (menit) untuk perbandingan
             const toMinutes = (s) => { const [h, m] = s.split(':').map(Number); return h * 60 + m; };
             const mBaru = toMinutes(mulai);
             const sBaru = toMinutes(selesai);
 
-            if(sBaru <= mBaru) return Swal.fire('Jam Salah', 'Jam selesai harus setelah jam mulai!', 'error');
+            if(sBaru <= mBaru) return Swal.fire('Error', 'Jam selesai harus lebih besar dari jam mulai.', 'error');
 
-            // Cek Tabrakan: Cari booking di tanggal & ruangan yang sama
-            const isTabrakan = allBookings.some(b => {
+            // --- CEK TABRAKAN JADWAL ---
+            const bentrok = allBookings.find(b => {
                 if (b.tanggal === tgl && b.ruangan === ruang && b.status !== 'Rejected') {
                     const [bMulaiStr, bSelesaiStr] = b.jam.split(' - ');
                     const bMulai = toMinutes(bMulaiStr);
                     const bSelesai = toMinutes(bSelesaiStr);
-                    // Logika Irisan Waktu: (Mulai1 < Selesai2) DAN (Selesai1 > Mulai2)
                     return (mBaru < bSelesai && sBaru > bMulai);
                 }
                 return false;
             });
 
-            if (isTabrakan) {
+            if (bentrok) {
                 return Swal.fire({
                     icon: 'error',
-                    title: 'Jadwal Bentrok!',
-                    text: `Ruang ${ruang} sudah dibooking pada jam tersebut. Silakan pilih jam atau ruangan lain.`,
+                    title: 'Jadwal Sudah Terisi!',
+                    html: `<p class="text-xs">Maaf, ruangan <b>${ruang}</b> sudah ada booking pada jam tersebut:<br><br>
+                           <b>"${bentrok.kegiatan}"</b><br>(${bentrok.jam})<br><br>
+                           Silakan pilih ruangan lain atau jam lain.</p>`,
                     confirmButtonColor: '#1e3a8a'
                 });
             }
 
-            // Jika aman, simpan ke Firebase
             const id = Date.now().toString();
             db.ref('bookings/' + id).set({
                 id: id, tanggal: tgl, jam: `${mulai} - ${selesai}`,
                 ruangan: ruang, kegiatan: document.getElementById('kegiatan').value,
                 bidang: document.getElementById('bidang').value, pj: document.getElementById('pj').value, status: 'Pending'
             }).then(() => {
-                Swal.fire('Berhasil!', 'Reservasi terkirim dan sedang menunggu verifikasi.', 'success');
+                Swal.fire('Berhasil!', 'Reservasi terkirim. Menunggu verifikasi admin.', 'success');
                 document.getElementById('bookingForm').reset();
                 selectedDateStr = ""; initFormCalendar();
             });
         }
 
-        // --- SISA KODE (Calendar, Timepicker, UI) ---
         function renderCalendar() {
             const calendarEl = document.getElementById('calendarMain');
             const filter = document.getElementById('filterRuangan').value;
@@ -239,7 +241,7 @@
         function showBookingDetail(p) {
             Swal.fire({
                 title: `<p class="text-sm font-black uppercase">${p.kegiatan}</p>`,
-                html: `<div class="text-left text-xs space-y-2 p-4 bg-gray-50 dark:bg-slate-900 rounded-2xl">
+                html: `<div class="text-left text-[11px] space-y-2 p-4 bg-gray-50 dark:bg-slate-900 rounded-2xl">
                     <p><strong>Ruang:</strong> ${p.ruangan}</p>
                     <p><strong>Waktu:</strong> ${p.jam}</p>
                     <p><strong>Bidang:</strong> ${p.bidang}</p>
@@ -251,22 +253,24 @@
                         <button onclick="updateStatus('${p.id}', 'Approved')" class="bg-green-600 text-white py-2 rounded-lg text-[10px] font-black uppercase">Approve</button>
                         <button onclick="updateStatus('${p.id}', 'Rejected')" class="bg-red-600 text-white py-2 rounded-lg text-[10px] font-black uppercase">Reject</button>
                     </div>` : ''}`,
-                showConfirmButton: false, customClass: { popup: 'rounded-[2rem] dark:bg-slate-800 dark:text-white' }
+                showConfirmButton: false, customClass: { popup: 'rounded-[2rem] dark:bg-slate-800' }
             });
         }
 
-        function updateStatus(id, newStatus) { db.ref('bookings/' + id).update({ status: newStatus }).then(() => Swal.close()); }
+        function updateStatus(id, newStatus) { 
+            if(currentRole !== 'admin') return;
+            db.ref('bookings/' + id).update({ status: newStatus }).then(() => Swal.close()); 
+        }
 
         function downloadRekapan() {
             if (currentRole !== 'admin') return;
-            const date = calendar.getDate();
-            const month = date.getMonth(), year = date.getFullYear();
-            const filtered = allBookings.filter(b => { const d = new Date(b.tanggal); return d.getMonth() === month && d.getFullYear() === year; });
-            if (filtered.length === 0) return Swal.fire('Info', 'Tidak ada data', 'info');
-            const ws = XLSX.utils.json_to_sheet(filtered.map((b, i) => ({ "No": i + 1, "Tanggal": b.tanggal, "Waktu": b.jam, "Ruang": b.ruangan, "Kegiatan": b.kegiatan, "Status": b.status })));
+            const ws = XLSX.utils.json_to_sheet(allBookings.map((b, i) => ({ 
+                "No": i + 1, "Tanggal": b.tanggal, "Waktu": b.jam, "Ruang": b.ruangan, 
+                "Kegiatan": b.kegiatan, "Bidang": b.bidang, "PIC": b.pj, "Status": b.status 
+            })));
             const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Rekap");
-            XLSX.writeFile(wb, `REKAP_${month+1}_${year}.xlsx`);
+            XLSX.utils.book_append_sheet(wb, ws, "Rekap Booking");
+            XLSX.writeFile(wb, `REKAP_BOOKING_RUANG.xlsx`);
         }
 
         function generateTimeOptions(tH, tM, id) {
@@ -287,7 +291,7 @@
             const y = currentFormDate.getFullYear(), m = currentFormDate.getMonth();
             label.innerText = `${new Intl.DateTimeFormat('id-ID', { month: 'long' }).format(currentFormDate)} ${y}`;
             const first = new Date(y, m, 1).getDay(), days = new Date(y, m + 1, 0).getDate();
-            let offset = first === 0 ? 6 : first - 1;
+            let offset = (first === 0 ? 6 : first - 1);
             ['S','S','R','K','J','S','M'].forEach(h => grid.innerHTML += `<div class="text-[8px] font-black text-gray-300 text-center">${h}</div>`);
             for (let i = 0; i < offset; i++) grid.innerHTML += `<div></div>`;
             for (let d = 1; d <= days; d++) {
