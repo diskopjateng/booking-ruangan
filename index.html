@@ -30,8 +30,6 @@
         .time-column { height: 120px; overflow-y: auto; scrollbar-width: none; }
         .time-unit { padding: 0.5rem; text-align: center; cursor: pointer; border-radius: 0.5rem; font-weight: bold; font-size: 14px; }
         .time-unit.active { background: #1e3a8a; color: white; }
-        
-        /* Proteksi CSS: Sembunyikan tombol download secara default */
         #btnDownload { display: none; } 
     </style>
 </head>
@@ -60,7 +58,6 @@
         <p class="opacity-80 text-sm font-light">Sistem Informasi Penggunaan Ruang Rapat</p>
     </header>
 
-    <!-- FORM INPUT (Hanya User) -->
     <section id="userFormSection" class="container mx-auto px-6 -mt-10 hidden mb-12 relative z-50">
         <div class="max-w-5xl mx-auto bg-white dark:bg-slate-800 rounded-3xl shadow-2xl border border-gray-100 dark:border-slate-700 overflow-hidden">
             <form id="bookingForm" onsubmit="simpanKeFirebase(event)" class="grid grid-cols-1 lg:grid-cols-3">
@@ -110,18 +107,13 @@
         </div>
     </section>
 
-    <!-- TABEL KALENDER -->
     <section class="container mx-auto px-6 py-12">
         <div class="flex flex-col md:flex-row justify-between items-end mb-8 gap-4">
-            <div>
-                <h3 class="font-900 text-2xl text-blue-900 dark:text-white uppercase italic tracking-tighter">Jadwal Kalender</h3>
-            </div>
+            <h3 class="font-900 text-2xl text-blue-900 dark:text-white uppercase italic tracking-tighter">Jadwal Kalender</h3>
             <div class="flex gap-2 w-full md:w-auto">
-                <!-- TOMBOL REKAP: Sembunyi secara default -->
                 <button id="btnDownload" onclick="downloadRekapan()" class="text-[10px] font-black px-4 py-3 bg-green-600 text-white shadow-sm rounded-xl border-b-4 border-green-800 uppercase hover:bg-green-700 transition active:scale-95">
                     <i class="fas fa-file-excel mr-2"></i> Unduh Rekap
                 </button>
-
                 <select id="filterRuangan" onchange="renderCalendar()" class="text-[10px] font-black px-4 py-3 bg-white dark:bg-slate-800 shadow-sm rounded-xl border-b-4 border-yellow-500 uppercase">
                     <option value="Semua">Semua Ruangan</option>
                     <option>GATOTKACA</option><option>ARJUNA</option><option>ARIMBI</option><option>PODCAST</option>
@@ -144,24 +136,17 @@
         let selectedDateStr = "";
         let tempTime = { jamMulai: {H:'08', M:'00'}, jamSelesai: {H:'10', M:'00'} };
 
-        window.onload = () => {
-            detectRole();
-            initTheme();
-            tarikDataFirebase();
-        };
+        window.onload = () => { detectRole(); initTheme(); tarikDataFirebase(); };
 
         function detectRole() {
             const params = new URLSearchParams(window.location.search);
             const role = params.get('role');
-            
-            // Logika Proteksi: Reset semua akses
             currentRole = 'guest';
             document.getElementById('btnDownload').style.display = 'none';
             document.getElementById('userFormSection').classList.add('hidden');
-
             if (role === 'adalahadmin') {
                 currentRole = 'admin';
-                document.getElementById('btnDownload').style.display = 'block'; // Tampilkan tombol rekap
+                document.getElementById('btnDownload').style.display = 'block';
             } else if (role === 'adalahuser') {
                 currentRole = 'user';
                 document.getElementById('userFormSection').classList.remove('hidden');
@@ -172,37 +157,6 @@
             document.getElementById('roleLabel').innerText = "AKSES: " + currentRole.toUpperCase();
         }
 
-        function downloadRekapan() {
-            // Proteksi Lapis Kedua (Fungsional)
-            if (currentRole !== 'admin') {
-                Swal.fire('Izin Ditolak', 'Hanya admin yang boleh mengunduh rekap.', 'error');
-                return;
-            }
-
-            if (allBookings.length === 0) return Swal.fire('Gagal', 'Tidak ada data', 'error');
-
-            const date = calendar.getDate();
-            const month = date.getMonth();
-            const year = date.getFullYear();
-            const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
-
-            const filtered = allBookings.filter(b => {
-                const d = new Date(b.tanggal);
-                return d.getMonth() === month && d.getFullYear() === year;
-            });
-
-            if (filtered.length === 0) return Swal.fire('Info', 'Tidak ada data di bulan ini', 'info');
-
-            const excelData = filtered.map((b, i) => ({
-                "No": i + 1, "Tanggal": b.tanggal, "Waktu": b.jam, "Ruang": b.ruangan, "Kegiatan": b.kegiatan, "Bidang": b.bidang, "PIC": b.pj, "Status": b.status
-            }));
-
-            const ws = XLSX.utils.json_to_sheet(excelData);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Rekap");
-            XLSX.writeFile(wb, `REKAP_${monthNames[month].toUpperCase()}_${year}.xlsx`);
-        }
-
         function tarikDataFirebase() {
             db.ref('bookings').on('value', (snap) => {
                 allBookings = [];
@@ -211,24 +165,70 @@
             });
         }
 
+        // --- FUNGSI PROTEKSI TABRAKAN JADWAL ---
+        function simpanKeFirebase(e) {
+            e.preventDefault();
+            const tgl = document.getElementById('tanggal').value;
+            const ruang = document.getElementById('ruangan').value;
+            const mulai = document.getElementById('jamMulai').value;
+            const selesai = document.getElementById('jamSelesai').value;
+
+            if(!tgl || !mulai || !selesai) return Swal.fire('Error', 'Lengkapi tanggal dan jam!', 'warning');
+
+            // Konversi jam ke angka (menit) untuk perbandingan
+            const toMinutes = (s) => { const [h, m] = s.split(':').map(Number); return h * 60 + m; };
+            const mBaru = toMinutes(mulai);
+            const sBaru = toMinutes(selesai);
+
+            if(sBaru <= mBaru) return Swal.fire('Jam Salah', 'Jam selesai harus setelah jam mulai!', 'error');
+
+            // Cek Tabrakan: Cari booking di tanggal & ruangan yang sama
+            const isTabrakan = allBookings.some(b => {
+                if (b.tanggal === tgl && b.ruangan === ruang && b.status !== 'Rejected') {
+                    const [bMulaiStr, bSelesaiStr] = b.jam.split(' - ');
+                    const bMulai = toMinutes(bMulaiStr);
+                    const bSelesai = toMinutes(bSelesaiStr);
+                    // Logika Irisan Waktu: (Mulai1 < Selesai2) DAN (Selesai1 > Mulai2)
+                    return (mBaru < bSelesai && sBaru > bMulai);
+                }
+                return false;
+            });
+
+            if (isTabrakan) {
+                return Swal.fire({
+                    icon: 'error',
+                    title: 'Jadwal Bentrok!',
+                    text: `Ruang ${ruang} sudah dibooking pada jam tersebut. Silakan pilih jam atau ruangan lain.`,
+                    confirmButtonColor: '#1e3a8a'
+                });
+            }
+
+            // Jika aman, simpan ke Firebase
+            const id = Date.now().toString();
+            db.ref('bookings/' + id).set({
+                id: id, tanggal: tgl, jam: `${mulai} - ${selesai}`,
+                ruangan: ruang, kegiatan: document.getElementById('kegiatan').value,
+                bidang: document.getElementById('bidang').value, pj: document.getElementById('pj').value, status: 'Pending'
+            }).then(() => {
+                Swal.fire('Berhasil!', 'Reservasi terkirim dan sedang menunggu verifikasi.', 'success');
+                document.getElementById('bookingForm').reset();
+                selectedDateStr = ""; initFormCalendar();
+            });
+        }
+
+        // --- SISA KODE (Calendar, Timepicker, UI) ---
         function renderCalendar() {
             const calendarEl = document.getElementById('calendarMain');
             const filter = document.getElementById('filterRuangan').value;
             const data = (filter === 'Semua') ? allBookings : allBookings.filter(b => b.ruangan === filter);
-
             const events = data.map(b => ({
-                id: b.id,
-                title: `[${b.ruangan}] ${b.kegiatan}`,
-                start: b.tanggal,
+                id: b.id, title: `[${b.ruangan}] ${b.kegiatan}`, start: b.tanggal,
                 backgroundColor: b.status === 'Approved' ? '#22c55e' : (b.status === 'Rejected' ? '#ef4444' : '#facc15'),
                 extendedProps: { ...b }
             }));
-
             if (calendar) calendar.destroy();
             calendar = new FullCalendar.Calendar(calendarEl, {
-                initialView: 'dayGridMonth',
-                locale: 'id',
-                events: events,
+                initialView: 'dayGridMonth', locale: 'id', events: events,
                 headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek' },
                 eventClick: (info) => showBookingDetail(info.event.extendedProps)
             });
@@ -239,80 +239,54 @@
         function showBookingDetail(p) {
             Swal.fire({
                 title: `<p class="text-sm font-black uppercase">${p.kegiatan}</p>`,
-                html: `
-                    <div class="text-left text-xs space-y-2 p-4 bg-gray-50 dark:bg-slate-900 rounded-2xl">
-                        <p><strong>Ruang:</strong> ${p.ruangan}</p>
-                        <p><strong>Waktu:</strong> ${p.jam}</p>
-                        <p><strong>Bidang:</strong> ${p.bidang}</p>
-                        <p><strong>PIC:</strong> ${p.pj}</p>
-                        <p><strong>Status:</strong> ${p.status}</p>
-                    </div>
-                    ${currentRole === 'admin' ? `
-                        <div class="grid grid-cols-2 gap-2 mt-4">
-                            <button onclick="updateStatus('${p.id}', 'Approved')" class="bg-green-600 text-white py-2 rounded-lg text-[10px] font-black uppercase">Approve</button>
-                            <button onclick="updateStatus('${p.id}', 'Rejected')" class="bg-red-600 text-white py-2 rounded-lg text-[10px] font-black uppercase">Reject</button>
-                        </div>
-                    ` : ''}
-                `,
-                showConfirmButton: false,
-                customClass: { popup: 'rounded-[2rem] dark:bg-slate-800 dark:text-white' }
+                html: `<div class="text-left text-xs space-y-2 p-4 bg-gray-50 dark:bg-slate-900 rounded-2xl">
+                    <p><strong>Ruang:</strong> ${p.ruangan}</p>
+                    <p><strong>Waktu:</strong> ${p.jam}</p>
+                    <p><strong>Bidang:</strong> ${p.bidang}</p>
+                    <p><strong>PIC:</strong> ${p.pj}</p>
+                    <p><strong>Status:</strong> ${p.status}</p>
+                </div>
+                ${currentRole === 'admin' ? `
+                    <div class="grid grid-cols-2 gap-2 mt-4">
+                        <button onclick="updateStatus('${p.id}', 'Approved')" class="bg-green-600 text-white py-2 rounded-lg text-[10px] font-black uppercase">Approve</button>
+                        <button onclick="updateStatus('${p.id}', 'Rejected')" class="bg-red-600 text-white py-2 rounded-lg text-[10px] font-black uppercase">Reject</button>
+                    </div>` : ''}`,
+                showConfirmButton: false, customClass: { popup: 'rounded-[2rem] dark:bg-slate-800 dark:text-white' }
             });
         }
 
-        function simpanKeFirebase(e) {
-            e.preventDefault();
-            const tgl = document.getElementById('tanggal').value;
-            if(!tgl) return Swal.fire('Error', 'Pilih tanggal!', 'warning');
-            
-            const id = Date.now().toString();
-            db.ref('bookings/' + id).set({
-                id: id, tanggal: tgl, jam: document.getElementById('jamMulai').value + ' - ' + document.getElementById('jamSelesai').value,
-                ruangan: document.getElementById('ruangan').value, kegiatan: document.getElementById('kegiatan').value,
-                bidang: document.getElementById('bidang').value, pj: document.getElementById('pj').value, status: 'Pending'
-            }).then(() => {
-                Swal.fire('Berhasil!', 'Reservasi terkirim!', 'success');
-                document.getElementById('bookingForm').reset();
-                selectedDateStr = ""; initFormCalendar();
-            });
+        function updateStatus(id, newStatus) { db.ref('bookings/' + id).update({ status: newStatus }).then(() => Swal.close()); }
+
+        function downloadRekapan() {
+            if (currentRole !== 'admin') return;
+            const date = calendar.getDate();
+            const month = date.getMonth(), year = date.getFullYear();
+            const filtered = allBookings.filter(b => { const d = new Date(b.tanggal); return d.getMonth() === month && d.getFullYear() === year; });
+            if (filtered.length === 0) return Swal.fire('Info', 'Tidak ada data', 'info');
+            const ws = XLSX.utils.json_to_sheet(filtered.map((b, i) => ({ "No": i + 1, "Tanggal": b.tanggal, "Waktu": b.jam, "Ruang": b.ruangan, "Kegiatan": b.kegiatan, "Status": b.status })));
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Rekap");
+            XLSX.writeFile(wb, `REKAP_${month+1}_${year}.xlsx`);
         }
 
-        function updateStatus(id, newStatus) {
-            db.ref('bookings/' + id).update({ status: newStatus }).then(() => Swal.close());
+        function generateTimeOptions(tH, tM, id) {
+            const hD = document.getElementById(tH), mD = document.getElementById(tM);
+            for(let i=7; i<=18; i++) { const v = String(i).padStart(2, '0'); hD.innerHTML += `<div class="time-unit h-unit-${id}" onclick="setTimePart('${id}', 'H', '${v}', this)">${v}</div>`; }
+            ['00','15','30','45'].forEach(v => { mD.innerHTML += `<div class="time-unit m-unit-${id}" onclick="setTimePart('${id}', 'M', '${v}', this)">${v}</div>`; });
         }
-
-        // Helpers (Timepicker & Form Calendar)
-        function generateTimeOptions(targetHours, targetMins, inputId) {
-            const hDiv = document.getElementById(targetHours);
-            const mDiv = document.getElementById(targetMins);
-            for(let i=7; i<=18; i++) {
-                const val = String(i).padStart(2, '0');
-                hDiv.innerHTML += `<div class="time-unit h-unit-${inputId}" onclick="setTimePart('${inputId}', 'H', '${val}', this)">${val}</div>`;
-            }
-            ['00','15','30','45'].forEach(val => {
-                mDiv.innerHTML += `<div class="time-unit m-unit-${inputId}" onclick="setTimePart('${inputId}', 'M', '${val}', this)">${val}</div>`;
-            });
+        function setTimePart(id, t, v, el) {
+            tempTime[id][t] = v;
+            document.querySelectorAll(`.h-unit-${id}, .m-unit-${id}`).forEach(u => { if((t==='H' && u.classList.contains(`h-unit-${id}`)) || (t==='M' && u.classList.contains(`m-unit-${id}`))) u.classList.remove('active'); });
+            el.classList.add('active'); document.getElementById(id).value = `${tempTime[id].H}:${tempTime[id].M}`;
         }
-        function setTimePart(inputId, type, val, el) {
-            tempTime[inputId][type] = val;
-            document.querySelectorAll(`.h-unit-${inputId}, .m-unit-${inputId}`).forEach(u => {
-                if((type === 'H' && u.classList.contains(`h-unit-${inputId}`)) || (type === 'M' && u.classList.contains(`m-unit-${inputId}`))) u.classList.remove('active');
-            });
-            el.classList.add('active');
-            document.getElementById(inputId).value = `${tempTime[inputId].H}:${tempTime[inputId].M}`;
-        }
-        function toggleTimePicker(id) {
-            const el = document.getElementById(id);
-            el.style.display = el.style.display === 'block' ? 'none' : 'block';
-        }
+        function toggleTimePicker(id) { const el = document.getElementById(id); el.style.display = el.style.display === 'block' ? 'none' : 'block'; }
         function closeTimePicker(id) { document.getElementById(id).style.display = 'none'; }
         function initFormCalendar() {
-            const grid = document.getElementById('calendarGrid');
-            const monthLabel = document.getElementById('calendarMonth');
+            const grid = document.getElementById('calendarGrid'), label = document.getElementById('calendarMonth');
             grid.innerHTML = '';
             const y = currentFormDate.getFullYear(), m = currentFormDate.getMonth();
-            monthLabel.innerText = `${new Intl.DateTimeFormat('id-ID', { month: 'long' }).format(currentFormDate)} ${y}`;
-            const first = new Date(y, m, 1).getDay();
-            const days = new Date(y, m + 1, 0).getDate();
+            label.innerText = `${new Intl.DateTimeFormat('id-ID', { month: 'long' }).format(currentFormDate)} ${y}`;
+            const first = new Date(y, m, 1).getDay(), days = new Date(y, m + 1, 0).getDate();
             let offset = first === 0 ? 6 : first - 1;
             ['S','S','R','K','J','S','M'].forEach(h => grid.innerHTML += `<div class="text-[8px] font-black text-gray-300 text-center">${h}</div>`);
             for (let i = 0; i < offset; i++) grid.innerHTML += `<div></div>`;
@@ -321,21 +295,11 @@
                 grid.innerHTML += `<div onclick="selectDate('${ds}')" class="calendar-day ${selectedDateStr === ds ? 'selected' : ''}">${d}</div>`;
             }
         }
-        function selectDate(date) {
-            selectedDateStr = date; document.getElementById('tanggal').value = date;
-            document.getElementById('selectedDateDisplay').innerText = new Date(date).toLocaleDateString('id-ID', { dateStyle: 'full' });
-            initFormCalendar();
-        }
+        function selectDate(d) { selectedDateStr = d; document.getElementById('tanggal').value = d; document.getElementById('selectedDateDisplay').innerText = new Date(d).toLocaleDateString('id-ID', { dateStyle: 'full' }); initFormCalendar(); }
         function prevMonth() { currentFormDate.setMonth(currentFormDate.getMonth() - 1); initFormCalendar(); }
         function nextMonth() { currentFormDate.setMonth(currentFormDate.getMonth() + 1); initFormCalendar(); }
-        function toggleDarkMode() {
-            const isDark = document.documentElement.classList.toggle('dark');
-            localStorage.setItem('theme', isDark ? 'dark' : 'light');
-            if(calendar) renderCalendar();
-        }
-        function initTheme() {
-            if (localStorage.getItem('theme') === 'dark') document.documentElement.classList.add('dark');
-        }
+        function toggleDarkMode() { localStorage.setItem('theme', document.documentElement.classList.toggle('dark') ? 'dark' : 'light'); if(calendar) renderCalendar(); }
+        function initTheme() { if (localStorage.getItem('theme') === 'dark') document.documentElement.classList.add('dark'); }
     </script>
 </body>
 </html>
