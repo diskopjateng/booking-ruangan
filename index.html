@@ -375,7 +375,7 @@ async function simpanKeFirebase(e) {
         pj: document.getElementById('pj').value,
         status: 'Pending'
     }).then(() => {
-        Swal.fire('Berhasil!', 'Reservasi terkirim!', 'success');
+        Swal.fire('Berhasil!', 'Booking terkirim!', 'success');
         document.getElementById('bookingForm').reset();
         selectedDateStr = "";
         initFormCalendar();
