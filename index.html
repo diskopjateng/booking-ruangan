@@ -245,7 +245,6 @@ function renderCalendar() {
 
 function showBookingDetail(p) {
     let adminButtons = "";
-    // CEK APAKAH ADMIN
     if (currentRole === 'admin') {
         adminButtons = `
             <div class="grid grid-cols-3 gap-2 mt-6 pt-4 border-t border-gray-200 dark:border-slate-700">
@@ -277,7 +276,6 @@ function showBookingDetail(p) {
     });
 }
 
-// FUNGSI KHUSUS ADMIN
 function prosesAdmin(id, status) {
     db.ref('bookings/' + id).update({ status: status })
     .then(() => {
@@ -285,7 +283,7 @@ function prosesAdmin(id, status) {
     });
 }
 
-function hapAdmin(id) {
+function hapusAdmin(id) {
     Swal.fire({
         title: 'Hapus Data?',
         text: "Data akan dihapus permanen!",
@@ -302,11 +300,10 @@ function hapAdmin(id) {
         }
     });
 }
-// Alias untuk memudahkan pemanggilan di HTML string
-window.prosesAdmin = prosesAdmin;
-window.hapusAdmin = hapAdmin;
 
-// FUNGSI LAINNYA (Sama seperti sebelumnya - Tidak diubah)
+window.prosesAdmin = prosesAdmin;
+window.hapusAdmin = hapusAdmin;
+
 function initFormCalendar() {
     const grid = document.getElementById('calendarGrid');
     const monthLabel = document.getElementById('calendarMonth');
@@ -357,19 +354,60 @@ function toggleTimePicker(id) {
 }
 function closeTimePicker(id) { document.getElementById(id).style.display = 'none'; }
 
+// --- BAGIAN YANG DIPERBAIKI UNTUK MENCEGAH TABRAKAN JADWAL ---
 async function simpanKeFirebase(e) {
     e.preventDefault();
     const tgl = document.getElementById('tanggal').value;
     const jamMulai = document.getElementById('jamMulai').value;
     const jamSelesai = document.getElementById('jamSelesai').value;
-    if (!tgl || !jamMulai || !jamSelesai) return Swal.fire('Error', 'Lengkapi data!', 'warning');
+    const ruanganPilihan = document.getElementById('ruangan').value;
     
+    if (!tgl || !jamMulai || !jamSelesai) return Swal.fire('Error', 'Lengkapi data!', 'warning');
+
+    // Fungsi pembantu untuk mengubah string jam ke total menit
+    const toMinutes = (timeStr) => {
+        const [h, m] = timeStr.split(':').map(Number);
+        return h * 60 + m;
+    };
+
+    const startBaru = toMinutes(jamMulai);
+    const endBaru = toMinutes(jamSelesai);
+
+    // Cari jadwal yang bentrok (Hanya mengecek yang statusnya Approved atau Pending)
+    const bentrok = allBookings.find(b => {
+        // Cek apakah tanggal dan ruangan sama, dan statusnya bukan Rejected
+        if (b.tanggal === tgl && b.ruangan === ruanganPilihan && b.status !== 'Rejected') {
+            const [bMulai, bSelesai] = b.jam.split(' - ');
+            const startLama = toMinutes(bMulai);
+            const endLama = toMinutes(bSelesai);
+
+            // Logika Irisan Waktu: (MulaiA < SelesaiB) DAN (SelesaiA > MulaiB)
+            return (startBaru < endLama && endBaru > startLama);
+        }
+        return false;
+    });
+
+    if (bentrok) {
+        return Swal.fire({
+            icon: 'error',
+            title: 'Ruangan Sudah Terisi!',
+            html: `Ruangan <b>${ruanganPilihan}</b> telah dibooking oleh:<br>
+                   <div class="mt-4 text-left text-xs bg-red-50 dark:bg-red-900/20 p-3 rounded-xl border border-red-200 dark:border-red-800">
+                    <p class="mb-1"><b>📌 Bidang:</b> ${bentrok.bidang}</p>
+                    <p class="mb-1"><b>⏰ Jam:</b> ${bentrok.jam}</p>
+                    <p><b>📝 Kegiatan:</b> ${bentrok.kegiatan}</p>
+                   </div>`,
+            background: document.documentElement.classList.contains('dark') ? '#1e293b' : '#fff',
+            color: document.documentElement.classList.contains('dark') ? '#fff' : '#000'
+        });
+    }
+
     const id = Date.now().toString();
     db.ref('bookings/' + id).set({
         id: id,
         tanggal: tgl,
         jam: jamMulai + ' - ' + jamSelesai,
-        ruangan: document.getElementById('ruangan').value,
+        ruangan: ruanganPilihan,
         kegiatan: document.getElementById('kegiatan').value,
         bidang: document.getElementById('bidang').value,
         pj: document.getElementById('pj').value,
@@ -381,13 +419,19 @@ async function simpanKeFirebase(e) {
         initFormCalendar();
     });
 }
+// --- AKHIR PERBAIKAN ---
 
 function toggleDarkMode() {
     const isDark = document.documentElement.classList.toggle('dark');
     localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    const icon = document.getElementById('themeIcon');
+    icon.className = isDark ? 'fas fa-sun' : 'fas fa-moon';
 }
 function initTheme() {
-    if (localStorage.getItem('theme') === 'dark') document.documentElement.classList.add('dark');
+    if (localStorage.getItem('theme') === 'dark') {
+        document.documentElement.classList.add('dark');
+        document.getElementById('themeIcon').className = 'fas fa-sun';
+    }
 }
 
 function downloadRekapan() {
