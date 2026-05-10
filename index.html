@@ -168,10 +168,10 @@
 </div>
 
 <script>
+// Firebase Setup
 const firebaseConfig = {
     databaseURL: "https://databasebooking-cfa37-default-rtdb.asia-southeast1.firebasedatabase.app/"
 };
-
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
@@ -253,69 +253,44 @@ function showBookingDetail(p) {
             </div>
         `;
     }
-
     Swal.fire({
         title: `<div class="text-blue-900 dark:text-blue-400 font-black text-sm uppercase italic">${p.kegiatan}</div>`,
         html: `
             <div class="text-left text-[11px] space-y-3 p-4 bg-gray-50 dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-700">
-                <p><strong><i class="fas fa-door-open mr-2"></i>Ruangan:</strong> ${p.ruangan}</p>
-                <p><strong><i class="fas fa-clock mr-2"></i>Waktu:</strong> ${p.jam}</p>
-                <p><strong><i class="fas fa-building mr-2"></i>Bidang:</strong> ${p.bidang}</p>
-                <p><strong><i class="fas fa-user mr-2"></i>PIC:</strong> ${p.pj}</p>
-                <p><strong><i class="fas fa-info-circle mr-2"></i>Status:</strong> 
-                   <span class="px-2 py-1 rounded-md font-bold ${p.status === 'Approved' ? 'bg-green-100 text-green-700' : p.status === 'Rejected' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}">${p.status}</span>
-                </p>
+                <p><strong>Ruangan:</strong> ${p.ruangan}</p>
+                <p><strong>Waktu:</strong> ${p.jam}</p>
+                <p><strong>Bidang:</strong> ${p.bidang}</p>
+                <p><strong>PIC:</strong> ${p.pj}</p>
+                <p><strong>Status:</strong> <span class="font-bold">${p.status}</span></p>
             </div>
             ${adminButtons}
         `,
-        showConfirmButton: false,
-        showCloseButton: true,
-        background: document.documentElement.classList.contains('dark') ? '#1e293b' : '#fff',
-        color: document.documentElement.classList.contains('dark') ? '#fff' : '#000'
+        showConfirmButton: false, showCloseButton: true
     });
 }
 
 function prosesAdmin(id, status) {
     db.ref('bookings/' + id).update({ status: status })
-    .then(() => {
-        Swal.fire({ icon: 'success', title: 'Berhasil', text: 'Status diperbarui ke ' + status, timer: 1500 });
-    });
+    .then(() => Swal.fire('Berhasil', 'Status diperbarui', 'success'));
 }
 
 function hapusAdmin(id) {
-    Swal.fire({
-        title: 'Hapus Data?',
-        text: "Data akan dihapus permanen!",
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#d33',
-        cancelButtonColor: '#3085d6',
-        confirmButtonText: 'Ya, Hapus'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            db.ref('bookings/' + id).remove().then(() => {
-                Swal.fire('Terhapus!', 'Data berhasil dihapus.', 'success');
-            });
-        }
-    });
+    db.ref('bookings/' + id).remove().then(() => Swal.fire('Dihapus', 'Data telah dihapus', 'success'));
 }
 
-window.prosesAdmin = prosesAdmin;
-window.hapusAdmin = hapusAdmin;
-
+// Logika Form & Time Picker
 function initFormCalendar() {
     const grid = document.getElementById('calendarGrid');
     const monthLabel = document.getElementById('calendarMonth');
-    const months = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
     grid.innerHTML = '';
     const year = currentFormDate.getFullYear();
     const month = currentFormDate.getMonth();
-    monthLabel.innerText = `${months[month]} ${year}`;
+    monthLabel.innerText = `${new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' }).format(currentFormDate)}`;
     const firstDay = new Date(year, month, 1).getDay();
     const days = new Date(year, month + 1, 0).getDate();
     let offset = firstDay === 0 ? 6 : firstDay - 1;
     ['S','S','R','K','J','S','M'].forEach(h => { grid.innerHTML += `<div class="text-[8px] font-black text-gray-300 text-center">${h}</div>`; });
-    for (let i = 0; i < offset; i++) { grid.innerHTML += `<div class="calendar-day empty"></div>`; }
+    for (let i = 0; i < offset; i++) grid.innerHTML += `<div></div>`;
     for (let d = 1; d <= days; d++) {
         const ds = `${year}-${String(month + 1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
         grid.innerHTML += `<div onclick="selectDate('${ds}')" class="calendar-day ${selectedDateStr === ds ? 'selected' : ''}">${d}</div>`;
@@ -324,11 +299,12 @@ function initFormCalendar() {
 function selectDate(date) {
     selectedDateStr = date;
     document.getElementById('tanggal').value = date;
-    document.getElementById('selectedDateDisplay').innerText = new Date(date).toLocaleDateString('id-ID', { dateStyle: 'full' });
+    document.getElementById('selectedDateDisplay').innerText = date;
     initFormCalendar();
 }
 function prevMonth() { currentFormDate.setMonth(currentFormDate.getMonth() - 1); initFormCalendar(); }
 function nextMonth() { currentFormDate.setMonth(currentFormDate.getMonth() + 1); initFormCalendar(); }
+
 function generateTimeOptions(targetHours, targetMins, inputId) {
     const hDiv = document.getElementById(targetHours);
     const mDiv = document.getElementById(targetMins);
@@ -341,8 +317,7 @@ function generateTimeOptions(targetHours, targetMins, inputId) {
     });
 }
 function setTimePart(inputId, type, val, el) {
-    const container = el.parentElement;
-    container.querySelectorAll('.time-unit').forEach(u => u.classList.remove('active'));
+    el.parentElement.querySelectorAll('.time-unit').forEach(u => u.classList.remove('active'));
     tempTime[inputId][type] = val;
     el.classList.add('active');
     document.getElementById(inputId).value = `${tempTime[inputId].H}:${tempTime[inputId].M}`;
@@ -353,114 +328,87 @@ function toggleTimePicker(id) {
 }
 function closeTimePicker(id) { document.getElementById(id).style.display = 'none'; }
 
-// --- PERBAIKAN: CEK TABRAKAN JADWAL ---
+// --- LOGIKA UTAMA: PENCEGAHAN TABRAKAN (PENDING & APPROVED) ---
 async function simpanKeFirebase(e) {
     e.preventDefault();
     const tgl = document.getElementById('tanggal').value;
     const jamMulai = document.getElementById('jamMulai').value;
     const jamSelesai = document.getElementById('jamSelesai').value;
-    const ruanganPilihan = document.getElementById('ruangan').value;
-    
-    if (!tgl || !jamMulai || !jamSelesai) return Swal.fire('Error', 'Lengkapi data!', 'warning');
+    const ruangan = document.getElementById('ruangan').value;
 
-    const toMinutes = (timeStr) => {
-        const [h, m] = timeStr.split(':').map(Number);
-        return h * 60 + m;
-    };
+    if (!tgl || !jamMulai || !jamSelesai) return Swal.fire('Error', 'Lengkapi tanggal dan jam!', 'warning');
 
-    const startBaru = toMinutes(jamMulai);
-    const endBaru = toMinutes(jamSelesai);
+    const toMin = (s) => { const [h, m] = s.split(':').map(Number); return h * 60 + m; };
+    const sBaru = toMin(jamMulai);
+    const eBaru = toMin(jamSelesai);
 
-    if (startBaru >= endBaru) return Swal.fire('Error', 'Jam mulai harus lebih awal dari jam selesai!', 'error');
+    if (sBaru >= eBaru) return Swal.fire('Error', 'Jam selesai harus setelah jam mulai!', 'error');
 
-    // MENGAMBIL DATA TERBARU DARI FIREBASE (Penting agar data PENDING terdeteksi)
+    // Ambil data terbaru langsung dari server sebelum menyimpan
     db.ref('bookings').once('value', (snapshot) => {
-        let isBentrok = false;
-        let dataBentrok = null;
-
-        snapshot.forEach((child) => {
+        let bentrok = null;
+        snapshot.forEach(child => {
             const b = child.val();
-            // Cek: Tanggal sama, Ruangan sama, Status BUKAN Rejected (Berarti Approved & Pending dicek)
-            if (b.tanggal === tgl && b.ruangan === ruanganPilihan && b.status !== 'Rejected') {
-                const [bMulai, bSelesai] = b.jam.split(' - ');
-                const startLama = toMinutes(bMulai);
-                const endLama = toMinutes(bSelesai);
-
-                // Rumus Irisan: (Mulai Baru < Selesai Lama) DAN (Selesai Baru > Mulai Lama)
-                if (startBaru < endLama && endBaru > startLama) {
-                    isBentrok = true;
-                    dataBentrok = b;
+            // Cek jika Ruangan & Tanggal sama, DAN status bukan "Rejected"
+            if (b.ruangan === ruangan && b.tanggal === tgl && b.status !== 'Rejected') {
+                const [jM, jS] = b.jam.split(' - ');
+                const sLama = toMin(jM);
+                const eLama = toMin(jS);
+                // Cek tabrakan irisan waktu
+                if (sBaru < eLama && eBaru > sLama) {
+                    bentrok = b;
                 }
             }
         });
 
-        if (isBentrok) {
+        if (bentrok) {
             Swal.fire({
                 icon: 'error',
-                title: 'Ruangan Sudah Terisi!',
-                html: `Ruangan <b>${ruanganPilihan}</b> telah dibooking oleh:<br>
-                       <div class="mt-4 text-left text-xs bg-red-50 dark:bg-red-900/20 p-3 rounded-xl border border-red-200 dark:border-red-800">
-                        <p class="mb-1"><b>📌 Bidang:</b> ${dataBentrok.bidang}</p>
-                        <p class="mb-1"><b>⏰ Jam:</b> ${dataBentrok.jam}</p>
-                        <p class="mb-1"><b>📝 Kegiatan:</b> ${dataBentrok.kegiatan}</p>
-                        <p><b>⚠️ Status:</b> ${dataBentrok.status}</p>
-                       </div>`,
+                title: 'Ruangan Telah Dipesan!',
+                html: `<div class="text-left text-xs p-3 bg-red-50 rounded-lg border border-red-100">
+                    <p><b>Bidang:</b> ${bentrok.bidang}</p>
+                    <p><b>Kegiatan:</b> ${bentrok.kegiatan}</p>
+                    <p><b>Jam:</b> ${bentrok.jam}</p>
+                    <p><b>Status:</b> ${bentrok.status}</p>
+                </div>`,
             });
         } else {
-            // JIKA TIDAK BENTROK, SIMPAN
+            // Lanjutkan simpan jika aman
             const id = Date.now().toString();
             db.ref('bookings/' + id).set({
                 id: id,
                 tanggal: tgl,
                 jam: jamMulai + ' - ' + jamSelesai,
-                ruangan: ruanganPilihan,
+                ruangan: ruangan,
                 kegiatan: document.getElementById('kegiatan').value,
                 bidang: document.getElementById('bidang').value,
                 pj: document.getElementById('pj').value,
                 status: 'Pending'
             }).then(() => {
-                Swal.fire('Berhasil!', 'Booking terkirim!', 'success');
+                Swal.fire('Berhasil', 'Permohonan booking terkirim!', 'success');
                 document.getElementById('bookingForm').reset();
-                selectedDateStr = "";
-                initFormCalendar();
+                selectedDateStr = ""; initFormCalendar();
             });
         }
     });
 }
 
 function toggleDarkMode() {
-    const isDark = document.documentElement.classList.toggle('dark');
-    localStorage.setItem('theme', isDark ? 'dark' : 'light');
-    const icon = document.getElementById('themeIcon');
-    icon.className = isDark ? 'fas fa-sun' : 'fas fa-moon';
+    document.documentElement.classList.toggle('dark');
 }
 function initTheme() {
-    if (localStorage.getItem('theme') === 'dark') {
-        document.documentElement.classList.add('dark');
-        document.getElementById('themeIcon').className = 'fas fa-sun';
-    }
+    if (window.matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.classList.add('dark');
 }
 
 function downloadRekapan() {
-    const currentViewDate = calendar.getDate();
-    const currentMonth = currentViewDate.getMonth();
-    const currentYear = currentViewDate.getFullYear();
-    const monthNames = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
-    const filteredData = allBookings.filter(b => {
-        const d = new Date(b.tanggal);
-        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-    }).sort((a, b) => new Date(a.tanggal) - new Date(b.tanggal));
-
-    const dataExcel = filteredData.map((b, index) => ({
-        "No": index + 1, "Tanggal": b.tanggal, "Waktu": b.jam, "Ruangan": b.ruangan, "Kegiatan": b.kegiatan, "Bidang": b.bidang, "PIC": b.pj, "Status": b.status
+    const dataExcel = allBookings.map((b, i) => ({
+        "No": i + 1, "Tanggal": b.tanggal, "Waktu": b.jam, "Ruangan": b.ruangan, "Kegiatan": b.kegiatan, "Bidang": b.bidang, "PIC": b.pj, "Status": b.status
     }));
-
     const worksheet = XLSX.utils.json_to_sheet(dataExcel);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Rekap");
-    XLSX.writeFile(workbook, `REKAP_${monthNames[currentMonth].toUpperCase()}.xlsx`);
+    XLSX.writeFile(workbook, `REKAP_BOOKING.xlsx`);
 }
 </script>
-
 </body>
 </html>
