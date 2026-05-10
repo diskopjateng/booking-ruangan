@@ -168,7 +168,6 @@
 </div>
 
 <script>
-// Konfigurasi Database Anda
 const firebaseConfig = {
     databaseURL: "https://databasebooking-cfa37-default-rtdb.asia-southeast1.firebasedatabase.app/"
 };
@@ -354,7 +353,7 @@ function toggleTimePicker(id) {
 }
 function closeTimePicker(id) { document.getElementById(id).style.display = 'none'; }
 
-// --- BAGIAN YANG DIPERBAIKI UNTUK MENCEGAH TABRAKAN JADWAL ---
+// --- PERBAIKAN: CEK TABRAKAN JADWAL ---
 async function simpanKeFirebase(e) {
     e.preventDefault();
     const tgl = document.getElementById('tanggal').value;
@@ -364,7 +363,6 @@ async function simpanKeFirebase(e) {
     
     if (!tgl || !jamMulai || !jamSelesai) return Swal.fire('Error', 'Lengkapi data!', 'warning');
 
-    // Fungsi pembantu untuk mengubah string jam ke total menit
     const toMinutes = (timeStr) => {
         const [h, m] = timeStr.split(':').map(Number);
         return h * 60 + m;
@@ -373,53 +371,62 @@ async function simpanKeFirebase(e) {
     const startBaru = toMinutes(jamMulai);
     const endBaru = toMinutes(jamSelesai);
 
-    // Cari jadwal yang bentrok (Hanya mengecek yang statusnya Approved atau Pending)
-    const bentrok = allBookings.find(b => {
-        // Cek apakah tanggal dan ruangan sama, dan statusnya bukan Rejected
-        if (b.tanggal === tgl && b.ruangan === ruanganPilihan && b.status !== 'Rejected') {
-            const [bMulai, bSelesai] = b.jam.split(' - ');
-            const startLama = toMinutes(bMulai);
-            const endLama = toMinutes(bSelesai);
+    if (startBaru >= endBaru) return Swal.fire('Error', 'Jam mulai harus lebih awal dari jam selesai!', 'error');
 
-            // Logika Irisan Waktu: (MulaiA < SelesaiB) DAN (SelesaiA > MulaiB)
-            return (startBaru < endLama && endBaru > startLama);
-        }
-        return false;
-    });
+    // MENGAMBIL DATA TERBARU DARI FIREBASE (Penting agar data PENDING terdeteksi)
+    db.ref('bookings').once('value', (snapshot) => {
+        let isBentrok = false;
+        let dataBentrok = null;
 
-    if (bentrok) {
-        return Swal.fire({
-            icon: 'error',
-            title: 'Ruangan Sudah Terisi!',
-            html: `Ruangan <b>${ruanganPilihan}</b> telah dibooking oleh:<br>
-                   <div class="mt-4 text-left text-xs bg-red-50 dark:bg-red-900/20 p-3 rounded-xl border border-red-200 dark:border-red-800">
-                    <p class="mb-1"><b>📌 Bidang:</b> ${bentrok.bidang}</p>
-                    <p class="mb-1"><b>⏰ Jam:</b> ${bentrok.jam}</p>
-                    <p><b>📝 Kegiatan:</b> ${bentrok.kegiatan}</p>
-                   </div>`,
-            background: document.documentElement.classList.contains('dark') ? '#1e293b' : '#fff',
-            color: document.documentElement.classList.contains('dark') ? '#fff' : '#000'
+        snapshot.forEach((child) => {
+            const b = child.val();
+            // Cek: Tanggal sama, Ruangan sama, Status BUKAN Rejected (Berarti Approved & Pending dicek)
+            if (b.tanggal === tgl && b.ruangan === ruanganPilihan && b.status !== 'Rejected') {
+                const [bMulai, bSelesai] = b.jam.split(' - ');
+                const startLama = toMinutes(bMulai);
+                const endLama = toMinutes(bSelesai);
+
+                // Rumus Irisan: (Mulai Baru < Selesai Lama) DAN (Selesai Baru > Mulai Lama)
+                if (startBaru < endLama && endBaru > startLama) {
+                    isBentrok = true;
+                    dataBentrok = b;
+                }
+            }
         });
-    }
 
-    const id = Date.now().toString();
-    db.ref('bookings/' + id).set({
-        id: id,
-        tanggal: tgl,
-        jam: jamMulai + ' - ' + jamSelesai,
-        ruangan: ruanganPilihan,
-        kegiatan: document.getElementById('kegiatan').value,
-        bidang: document.getElementById('bidang').value,
-        pj: document.getElementById('pj').value,
-        status: 'Pending'
-    }).then(() => {
-        Swal.fire('Berhasil!', 'Booking terkirim!', 'success');
-        document.getElementById('bookingForm').reset();
-        selectedDateStr = "";
-        initFormCalendar();
+        if (isBentrok) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Ruangan Sudah Terisi!',
+                html: `Ruangan <b>${ruanganPilihan}</b> telah dibooking oleh:<br>
+                       <div class="mt-4 text-left text-xs bg-red-50 dark:bg-red-900/20 p-3 rounded-xl border border-red-200 dark:border-red-800">
+                        <p class="mb-1"><b>📌 Bidang:</b> ${dataBentrok.bidang}</p>
+                        <p class="mb-1"><b>⏰ Jam:</b> ${dataBentrok.jam}</p>
+                        <p class="mb-1"><b>📝 Kegiatan:</b> ${dataBentrok.kegiatan}</p>
+                        <p><b>⚠️ Status:</b> ${dataBentrok.status}</p>
+                       </div>`,
+            });
+        } else {
+            // JIKA TIDAK BENTROK, SIMPAN
+            const id = Date.now().toString();
+            db.ref('bookings/' + id).set({
+                id: id,
+                tanggal: tgl,
+                jam: jamMulai + ' - ' + jamSelesai,
+                ruangan: ruanganPilihan,
+                kegiatan: document.getElementById('kegiatan').value,
+                bidang: document.getElementById('bidang').value,
+                pj: document.getElementById('pj').value,
+                status: 'Pending'
+            }).then(() => {
+                Swal.fire('Berhasil!', 'Booking terkirim!', 'success');
+                document.getElementById('bookingForm').reset();
+                selectedDateStr = "";
+                initFormCalendar();
+            });
+        }
     });
 }
-// --- AKHIR PERBAIKAN ---
 
 function toggleDarkMode() {
     const isDark = document.documentElement.classList.toggle('dark');
