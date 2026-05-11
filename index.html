@@ -30,9 +30,7 @@
         .fc-button-primary { background-color: #1e3a8a !important; border: none !important; font-size: 11px !important; font-weight: 800 !important; text-transform: uppercase; border-radius: 10px !important; }
         .calendar-day { transition: all 0.2s; cursor: pointer; height: 35px; width: 35px; display: flex; align-items: center; justify-content: center; font-size: 11px; border-radius: 10px; }
         .calendar-day.selected { background-color: #1e3a8a !important; color: white !important; }
-        .calendar-day.conflict { background-color: #ef4444 !important; color: white !important; animation: pulse 2s infinite; }
         .calendar-day.booked { background-color: #facc15 !important; color: #1e3a8a !important; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
         .time-picker-overlay { 
             display: none; 
             position: absolute; 
@@ -87,6 +85,7 @@
         .delete-all-btn { 
             background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%) !important; 
             border-bottom-color: #991b1b !important;
+            color: white !important;
         }
         .delete-all-btn:hover { 
             background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%) !important;
@@ -234,11 +233,12 @@
             </div>
             <div class="flex gap-2 w-full lg:w-auto flex-wrap">
                 <!-- Tombol Hapus Semua - ADMIN ONLY -->
-                <button id="deleteAllBtn" onclick="hapusSemuaData()" class="hidden text-[10px] font-black px-6 py-3 delete-all-btn text-white shadow-lg rounded-xl uppercase hover:shadow-xl transition-all duration-200 active:scale-95 transform">
+                <button id="deleteAllBtn" onclick="hapusSemuaData()" class="hidden text-[10px] font-black px-6 py-3 delete-all-btn shadow-lg rounded-xl uppercase hover:shadow-xl transition-all duration-200 active:scale-95 transform">
                     <i class="fas fa-trash-alt mr-2"></i>Hapus Semua
                 </button>
+                <!-- Tombol Unduh Rekap - ADMIN ONLY -->
                 <button id="downloadBtn" onclick="downloadRekapan()" 
-                        class="hidden text-[10px] font-black px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white shadow-lg hover:shadow-xl rounded-xl border-b-4 border-green-700 uppercase hover:from-green-600 hover:to-green-700 transition-all duration-200 active:scale-95 transform">
+                        class="text-[10px] font-black px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white shadow-lg hover:shadow-xl rounded-xl border-b-4 border-green-700 uppercase hover:from-green-600 hover:to-green-700 transition-all duration-200 active:scale-95 transform">
                     <i class="fas fa-file-excel mr-2"></i> Unduh Rekap
                 </button>
                 <select id="filterRuangan" onchange="renderCalendar()" 
@@ -317,7 +317,7 @@ async function detectRole() {
     document.getElementById('roleLabel').title = `Akses: ${currentRole.toUpperCase()}`;
 }
 
-// *** FITUR BARU: HAPUS SEMUA DATA (ADMIN ONLY) ***
+// *** FITUR HAPUS SEMUA DATA (ADMIN ONLY) ***
 window.hapusSemuaData = async function() {
     if (currentRole !== 'admin') {
         Swal.fire('Akses Ditolak', 'Fitur ini hanya untuk admin!', 'warning');
@@ -461,7 +461,7 @@ function getStatusColor(status) {
     }
 }
 
-// *** SISTEM DETEKSI KONFLIK (FIXED DARK MODE) ***
+// *** SISTEM DETEKSI KONFLIK ***
 function checkConflict() {
     const tgl = document.getElementById('tanggal').value;
     const ruangan = document.getElementById('ruangan').value;
@@ -650,7 +650,7 @@ async function simpanKeFirebase(e) {
     }
 }
 
-// Kalender Form (untuk user)
+// *** KALENDER FORM USER - TANPA WARNA GANGGU ***
 function initFormCalendar() {
     const grid = document.getElementById('calendarGrid');
     const monthLabel = document.getElementById('calendarMonth');
@@ -675,14 +675,11 @@ function initFormCalendar() {
     
     for (let d = 1; d <= days; d++) {
         const ds = `${year}-${String(month + 1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-        const hasBooking = allBookings.some(b => 
-            b.tanggal === ds && ['Approved', 'Pending'].includes(b.status)
-        );
         const isSelected = selectedDateStr === ds;
         
         grid.innerHTML += `
             <div onclick="selectDate('${ds}')" 
-                 class="calendar-day h-9 ${isSelected ? 'selected' : ''} ${hasBooking ? 'conflict booked' : ''} hover:scale-110 transition-all duration-200 shadow-sm ${isSelected ? 'shadow-blue-500/50' : 'hover:shadow-md'}">
+                 class="calendar-day h-9 ${isSelected ? 'selected' : ''} hover:scale-110 transition-all duration-200 shadow-sm ${isSelected ? 'shadow-blue-500/50' : 'hover:shadow-md'}">
                 ${d}
             </div>
         `;
@@ -804,7 +801,7 @@ function downloadRekapan() {
     Swal.fire('Berhasil!', `Rekap ${monthNames[currentMonth]} ${currentYear} berhasil diunduh (${dataExcel.length} data)`, 'success');
 }
 
-// Fungsi Admin lainnya
+// *** FUNGSI ADMIN: HAPUS MANUAL PER PEMESANAN (TERJAGA) ***
 window.prosesAdmin = async function(id, status) {
     if (currentRole !== 'admin') return;
     
@@ -844,7 +841,7 @@ window.hapusAdmin = async function(id) {
     }
 };
 
-// Detail Booking
+// Detail Booking (dengan tombol admin)
 function showBookingDetail(p) {
     const statusClass = `status-${p.status.toLowerCase()}`;
     let adminButtons = "";
