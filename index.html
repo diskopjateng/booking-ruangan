@@ -667,7 +667,7 @@ function initFormCalendar() {
     const days = new Date(year, month + 1, 0).getDate();
     let offset = firstDay === 0 ? 6 : firstDay - 1;
     
-    ['M','S','S','R','K','J','S'].forEach(h => { 
+        ['S','S','R','K','J','S','M'].forEach(h => { 
         grid.innerHTML += `<div class="text-[8px] font-black text-gray-400 dark:text-gray-500 text-center py-1 uppercase">${h}</div>`; 
     });
     
